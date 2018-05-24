@@ -86,7 +86,129 @@ namespace FitbitAuth
 }
 ```
 
-11. 
+11. Aggiungere il folder _Extensions_ e all'interno il file _HttpContextExtensions.cs_:
+
+```csharp
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
+using System;
+using System.Linq;
+using System.Threading.Tasks;
+
+namespace FitbitAuth.Extensions
+{
+    public static class HttpContextExtensions
+    {
+        public static async Task<AuthenticationScheme[]> GetExternalProvidersAsync(this HttpContext context)
+        {
+            if (context == null)
+            {
+                throw new ArgumentNullException(nameof(context));
+            }
+
+            var schemes = context.RequestServices.GetRequiredService<IAuthenticationSchemeProvider>();
+
+            return (from scheme in await schemes.GetAllSchemesAsync()
+                    where !string.IsNullOrEmpty(scheme.DisplayName)
+                    select scheme).ToArray();
+        }
+
+        public static async Task<bool> IsProviderSupportedAsync(this HttpContext context, string provider)
+        {
+            if (context == null)
+            {
+                throw new ArgumentNullException(nameof(context));
+            }
+
+            return (from scheme in await context.GetExternalProvidersAsync()
+                    where string.Equals(scheme.Name, provider, StringComparison.OrdinalIgnoreCase)
+                    select scheme).Any();
+        }
+    }
+}
+```
+
+12. Aggiungere il controller _AuthenticationController_ che espone l'endpoint /sigin su cui Fitbit fa callback in fase di autenticazione:
+
+```csharp
+using System.Threading.Tasks;
+using FitbitAuth.Extensions;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Mvc;
+
+namespace FitbitAuth.Controllers
+{
+    public class AuthenticationController : Controller
+    {
+        [HttpGet("~/signin")]
+        public async Task<IActionResult> SignIn() => View("SignIn", await HttpContext.GetExternalProvidersAsync());
+
+        [HttpPost("~/signin")]
+        public async Task<IActionResult> SignIn([FromForm] string provider)
+        {
+            // Note: the "provider" parameter corresponds to the external
+            // authentication provider choosen by the user agent.
+            if (string.IsNullOrWhiteSpace(provider))
+            {
+                return BadRequest();
+            }
+
+            if (!await HttpContext.IsProviderSupportedAsync(provider))
+            {
+                return BadRequest();
+            }
+
+            // Instruct the middleware corresponding to the requested external identity
+            // provider to redirect the user agent to its own authorization endpoint.
+            // Note: the authenticationScheme parameter must match the value configured in Startup.cs
+            return Challenge(new AuthenticationProperties { RedirectUri = "/" }, provider);
+        }
+
+        [HttpGet("~/signout"), HttpPost("~/signout")]
+        public IActionResult SignOut()
+        {
+            // Instruct the cookies middleware to delete the local cookie created
+            // when the user agent is redirected from the external identity provider
+            // after a successful authentication flow (e.g Google or Facebook).
+            return SignOut(new AuthenticationProperties { RedirectUri = "/" },
+                CookieAuthenticationDefaults.AuthenticationScheme);
+        }
+    }
+}
+```
+13. Aggiungere il controller _HomeController_:
+
+```csharp
+```
+
+14. Aggiungere il folder _Views_ e quindi all'interno _Shared_:
+
+```csharp
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="" />
+    <meta name="author" content="" />
+
+    <title>Fitbit Auth Sample</title>
+
+    <link href="//maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" rel="stylesheet" />
+</head>
+
+<body>
+    <div class="container">
+        @RenderBody()
+    </div>
+</body>
+</html>
+```
+
+14.
 
 
 
