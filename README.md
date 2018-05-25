@@ -181,6 +181,16 @@ namespace FitbitAuth.Controllers
 13. Aggiungere il controller _HomeController_:
 
 ```csharp
+using Microsoft.AspNetCore.Mvc;
+
+namespace FitbitAuth.Controllers
+{
+    public class HomeController : Controller
+    {
+        [HttpGet("~/")]
+        public IActionResult Index() => View();
+    }
+}
 ```
 
 14. Aggiungere il folder _Views_ e quindi all'interno _Shared_:
@@ -208,8 +218,69 @@ namespace FitbitAuth.Controllers
 </html>
 ```
 
-14.
+15. Nel folder _Views_ aggiungere il file ___ViewStart.cshtml_:
 
+```csharp
+@{
+    Layout = "_Layout";
+}
+```
 
+16. Creare il folder _Views > Home_ e aggiungere il file _Index.cshtml_:
 
-Riferimenti: https://github.com/aspnet-contrib/AspNet.Security.OAuth.Providers
+```csharp
+@model string
+
+<div class="jumbotron">
+    @if (User?.Identity?.IsAuthenticated ?? false)
+    {
+        <h1>Welcome, @User.Identity.Name</h1>
+
+        <p>
+            @foreach (var claim in Context.User.Claims)
+            {
+                <div>@claim.Type: <b>@claim.Value</b></div>
+            }
+        </p>
+
+        <a class="btn btn-lg btn-danger" href="/signout?returnUrl=%2F">Sign out</a>
+    }
+
+    else
+    {
+        <h1>Welcome, anonymous</h1>
+        <a class="btn btn-lg btn-success" href="/signin?returnUrl=%2F">Sign in</a>
+    }
+</div>
+```
+
+17. Creare il folder _Views > Authentication_ e aggiungere il file _SignIn.cshtml_:
+
+```csharp
+@using Microsoft.AspNetCore.Authentication
+@model AuthenticationScheme[]
+
+<div class="jumbotron">
+    <h1>Authentication</h1>
+    <p class="lead text-left">Sign in using one of these external providers:</p>
+
+    @foreach (var scheme in Model)
+    {
+        <form action="/signin" method="post">
+            <input type="hidden" name="Provider" value="@scheme.Name" />
+            <input type="hidden" name="ReturnUrl" value="@ViewBag.ReturnUrl" />
+
+            <button class="btn btn-lg btn-success" type="submit">Connect using @scheme.DisplayName</button>
+        </form>
+    }
+</div>
+```
+
+18. Fare click con il tasto destro sul progetto > Properties. Selezionare il tab _Debug_ e flaggare la voce _Enable SSL_. La URL base (es. https://localhost:44321/) deve essere utilizzata per sistemare opportunamente la _Callback URL_ dell'app Fitbit che quindi risulterà essere qualcosa del tipo: https://localhost:44321/signin.
+
+19. Lanciare quindi la webapp e fare login.
+
+# Riferimenti
+* https://github.com/aspnet-contrib/AspNet.Security.OAuth.Providers
+* https://dev.fitbit.com/
+* https://dev.fitbit.com/build/reference/web-api/oauth2/
